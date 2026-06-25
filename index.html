@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>QR Code Bike Registration</title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <script src="https://unpkg.com/lucide@latest">
+    </script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 1.25rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e5e7eb;
+            transition: box-shadow 0.2s;
+            width: 100%;
+        }
+        .hidden-view {
+            display: none !important;
+        }
+        #toast-container {
+            position: fixed;
+            top: 0.75rem;
+            right: 0.75rem;
+            left: 0.75rem;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 420px;
+            margin-left: auto;
+            margin-right: auto;
+            pointer-events: none;
+        }
+        #toast-container .toast {
+            pointer-events: auto;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+            animation: slideIn 0.3s ease forwards;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: #1f2937;
+            color: #fff;
+        }
+        #toast-container .toast.removing {
+            animation: slideOut 0.3s ease forwards;
+        }
+        #toast-container .toast-success {
+            background: #16a34a;
+        }
+        #toast-container .toast-error {
+            background: #dc2626;
+        }
+        #toast-container .toast-warning {
+            background: #d97706;
+        }
+        #toast-container .toast-info {
+            background: #2563eb;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-16px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-16px) scale(0.96);
+            }
+        }
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal-card {
+            animation: scaleIn 0.25s ease;
+            background: #ffffff;
+            border-radius: 1.25rem;
+            max-width: 100%;
+            width: 100%;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.94) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        #qr-reader-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 1rem;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+        #qr-reader-container video {
+            width: 100% !important;
+            height: auto !important;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            display: block;
+        }
+        #qr-reader-container .qr-scanner-overlay {
+            position: absolute;
+            inset: 0;
+            border: 3px solid #dc2626;
+            border-radius: 1rem;
+            pointer-events: none;
+            box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.25);
+        }
+        #qr-reader-container .qr-corner {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-color: #dc2626;
+            border-style: solid;
+            border-width: 0;
+        }
+        #qr-reader-container .qr-corner.tl {
+            top: 12px;
+            left: 12px;
+            border-top-width: 4px;
+            border-left-width: 4px;
+            border-radius: 4px 0 0 0;
+        }
+        #qr-reader-container .qr-corner.tr {
+            top: 12px;
+            right: 12px;
+            border-top-width: 4px;
+            border-right-width: 4px;
+            border-radius: 0 4px 0 0;
+        }
+        #qr-reader-container .qr-corner.bl {
+            bottom: 12px;
+            left: 12px;
+            border-bottom-width: 4px;
+            border-left-width: 4px;
+            border-radius: 0 0 0 4px;
+        }
+        #qr-reader-container .qr-corner.br {
+            bottom: 12px;
+            right: 12px;
+            border-bottom-width: 4px;
+            border-right-width: 4px;
+            border-radius: 0 0 4px 0;
+        }
+        .scrollable {
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db transparent;
+        }
+        .scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollable::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollable::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        input,
+        button,
+        select,
+        textarea {
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        input:focus,
+        button:focus {
+            outline: none;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            background: #f9fafb;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-size: 1rem;
+            color: #1f2937;
+        }
+        .input-field:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+        }
+        .input-field::placeholder {
+            color: #9ca3af;
+        }
+        .btn-red {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            padding: 0.7rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .btn-red:active {
+            transform: scale(0.97);
+        }
+        .btn-red:hover {
+            background: #b91c1c;
+        }
+        .btn-red:disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .btn-grey {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+            padding: 0.7rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .btn-grey:active {
+            background: #e5e7eb;
+        }
+        .btn-green {
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            padding: 0.7rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .btn-green:active {
+            transform: scale(0.97);
+        }
+        .btn-green:hover {
+            background: #15803d;
+        }
+        .btn-green:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #9ca3af;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 0.5rem;
+            }
+            .card {
+                border-radius: 1rem;
+            }
+            .btn-red,
+            .btn-grey,
+            .btn-green {
+                padding: 0.65rem 1rem;
+                font-size: 0.9rem;
+            }
+            .input-field {
+                padding: 0.65rem 0.85rem;
+                font-size: 0.95rem;
+            }
+            #toast-container {
+                top: 0.5rem;
+                right: 0.5rem;
+                left: 0.5rem;
+                max-width: 100%;
+            }
+        }
+        .badge-red {
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 0.15rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .badge-green {
+            background: #dcfce7;
+            color: #15803d;
+            padding: 0.15rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        .records-table th {
+            background: #f3f4f6;
+            text-align: left;
+            padding: 0.4rem 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background: #f9fafb;
+            z-index: 2;
+        }
+        .records-table td {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        .records-table tr:hover {
+            background: #f9fafb;
+        }
+        .records-table .duplicate-warning {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        .record-count {
+            font-size: 0.7rem;
+            color: #6b7280;
+        }
+        #bike-number-feedback .valid {
+            color: #16a34a;
+        }
+        #bike-number-feedback .invalid {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        #bike-number-feedback .checking {
+            color: #6b7280;
+        }
+        .eye-toggle {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            color: #6b7280;
+            transition: color 0.2s;
+        }
+        .eye-toggle:hover {
+            color: #1f2937;
+        }
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-wrapper .input-field {
+            padding-right: 2.5rem;
+        }
+        .password-wrapper .eye-toggle {
+            position: absolute;
+            right: 0.5rem;
+        }
+        .photo-preview {
+            margin-top: 0.5rem;
+            position: relative;
+            display: inline-block;
+        }
+        .photo-preview img {
+            max-width: 120px;
+            max-height: 120px;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+        }
+        .photo-preview .remove-photo {
+            position: absolute;
+            top: -0.5rem;
+            right: -0.5rem;
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            border-radius: 9999px;
+            width: 1.5rem;
+            height: 1.5rem;
+            font-size: 1rem;
+            line-height: 1.2rem;
+            cursor: pointer;
+            padding: 0;
+        }
+        .photo-preview .remove-photo:hover {
+            background: #b91c1c;
+        }
+        #camera-modal .modal-card {
+            max-width: 480px;
+        }
+        #camera-modal video {
+            width: 100%;
+            background: #000;
+            border-radius: 0.75rem;
+            max-height: 60vh;
+            object-fit: cover;
+        }
+        .camera-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .camera-controls button {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <!-- ========== VIEW 1: LOGIN ========== -->
+    <div id="view-login" class="w-full max-w-md card p-6 md:p-8">
+        <div class="text-center mb-6">
+            <div class="flex justify-center mb-3">
+                <i data-lucide="bike" class="w-14 h-14 text-red-600"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">QR CODE BIKE REGISTER</h1>
+            <p class="text-gray-500 text-sm mt-1">Sign in to your account</p>
+        </div>
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="login-user" required autofocus class="input-field mt-1" placeholder="Enter username" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="login-pass" required class="input-field mt-1" placeholder="Enter password" />
+            </div>
+            <div class="flex flex-col gap-3 pt-2">
+                <button type="submit" class="btn-red w-full">
+                    <span id="login-text">Login</span>
+                    <i id="login-spinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('login-form').reset()" class="w-full btn-grey">Clear</button>
+                <button type="button" onclick="testBackend()" class="w-full btn-grey text-sm" style="border:1px dashed #dc2626;">
+                    <i data-lucide="wifi" class="w-4 h-4"></i> Test Backend Connection
+                </button>
+            </div>
+        </form>
+        <div id="test-result" class="mt-3 text-xs text-gray-500 text-center hidden"></div>
+    </div>
+
+    <!-- ========== VIEW 2: DATA ENTRY ========== -->
+    <div id="view-data" class="hidden-view w-full max-w-lg card p-5 md:p-7 flex flex-col h-[94vh] md:h-auto overflow-y-auto">
+        <div class="flex justify-between items-center mb-5 border-b border-gray-200 pb-4">
+            <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <i data-lucide="clipboard-check" class="w-5 h-5 text-red-600"></i> Register Bike
+            </h1>
+            <span id="logged-in-user" class="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full font-medium"></span>
+        </div>
+        <div class="space-y-5 flex-grow">
+            <!-- Bike Number + Photo -->
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <label class="block text-sm font-bold text-gray-700 mb-2">1. Bike Number</label>
+                <input type="text" id="bike-number" maxlength="5" class="input-field uppercase" placeholder="e.g. 1A2B3" autocomplete="off" />
+                <div id="bike-number-feedback" class="mt-1.5 text-xs flex items-center gap-1">
+                    <span>5 characters, starts with 1-5 or 9. Must exist in master list.</span>
+                </div>
+
+                <!-- Photo capture -->
+                <div class="mt-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Photo of Bike Number</label>
+                    <button type="button" onclick="openCamera()" id="take-photo-btn" class="btn-grey w-full">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                        <span id="take-photo-text">Take Photo</span>
+                    </button>
+                    <div id="bike-photo-preview" class="photo-preview hidden">
+                        <img id="bike-photo-img" src="" alt="Bike photo preview" />
+                        <button type="button" class="remove-photo" onclick="removeBikePhoto()">×</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QR / Barcode -->
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <label class="block text-sm font-bold text-gray-700 mb-2">2. QR / Barcode</label>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="barcode-value" class="input-field flex-1" placeholder="Scan or enter barcode" autocomplete="off" />
+                </div>
+                <button type="button" onclick="startQrScanner()" class="btn-red w-full">
+                    <i data-lucide="scan" class="w-5 h-5"></i> Scan QR Code
+                </button>
+                <p class="text-xs text-gray-500 mt-2 text-center">Tap to open camera.</p>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-200 space-y-3">
+            <div class="flex gap-3">
+                <button type="button" onclick="clearDataForm()" class="flex-1 btn-grey">Cancel</button>
+                <button type="button" onclick="saveData()" id="save-button" class="flex-1 btn-green" disabled>
+                    <span id="save-text">Submit Data</span>
+                    <i id="save-spinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                </button>
+            </div>
+            <button type="button" onclick="logout()" class="w-full text-sm font-medium text-red-600 hover:underline flex justify-center items-center gap-2 py-2 transition">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Log Out
+            </button>
+        </div>
+    </div>
+
+    <!-- ========== VIEW 3: ADMIN DASHBOARD ========== -->
+    <div id="view-admin" class="hidden-view w-full max-w-4xl card p-5 md:p-7 flex flex-col h-[94vh] md:h-auto overflow-y-auto">
+        <div class="flex justify-between items-center mb-5 border-b border-gray-200 pb-4">
+            <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-6 h-6 text-red-600"></i> Admin
+            </h1>
+            <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-800 flex items-center gap-1 transition">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Log Out
+            </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+            <div class="bg-red-50 p-3 rounded-xl text-center border border-red-100">
+                <div class="text-2xl font-bold text-red-700" id="stat-total">0</div>
+                <div class="text-xs text-gray-600">Registrations</div>
+            </div>
+            <div class="bg-green-50 p-3 rounded-xl text-center border border-green-100">
+                <div class="text-2xl font-bold text-green-700" id="stat-users">0</div>
+                <div class="text-xs text-gray-600">Total Users</div>
+            </div>
+            <div class="bg-purple-50 p-3 rounded-xl text-center border border-purple-100">
+                <div class="text-2xl font-bold text-purple-700" id="stat-photos">0</div>
+                <div class="text-xs text-gray-600">QR Scans</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                <h2 class="font-semibold text-lg text-gray-800 mb-3 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-5 h-5 text-red-600"></i> Add / Update User
+                </h2>
+                <div class="space-y-3">
+                    <input type="text" id="new-username" placeholder="Username" class="input-field" />
+                    <div class="password-wrapper">
+                        <input type="password" id="new-password" placeholder="Password" class="input-field" />
+                        <button type="button" class="eye-toggle" onclick="togglePasswordVisibility()" id="eye-toggle-btn">
+                            <i data-lucide="eye" id="eye-icon" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <button onclick="adminAction('addUser')" class="btn-red w-full">
+                        <span id="admin-add-text">Save User</span>
+                        <i id="admin-add-spinner" data-lucide="loader-2" class="w-4 h-4 animate-spin hidden"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50 flex flex-col justify-between">
+                <div>
+                    <h2 class="font-semibold text-lg text-gray-800 mb-2 flex items-center gap-2">
+                        <i data-lucide="database" class="w-5 h-5 text-green-600"></i> Database
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-4">Export all registered bikes as CSV.</p>
+                </div>
+                <button onclick="adminAction('downloadCSV')" class="btn-green w-full">
+                    <i data-lucide="download" class="w-4 h-4"></i> Download CSV
+                </button>
+            </div>
+        </div>
+        <div class="border border-gray-200 rounded-xl overflow-hidden flex-1">
+            <div class="flex border-b border-gray-200 bg-gray-50">
+                <button onclick="switchAdminTab('users')" id="tab-users" class="flex-1 py-3 px-4 text-sm font-medium text-red-600 border-b-2 border-red-600 transition">
+                    <i data-lucide="users" class="w-4 h-4 inline mr-1"></i> Users
+                </button>
+                <button onclick="switchAdminTab('history')" id="tab-history" class="flex-1 py-3 px-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition">
+                    <i data-lucide="history" class="w-4 h-4 inline mr-1"></i> History
+                </button>
+                <button onclick="switchAdminTab('records')" id="tab-records" class="flex-1 py-3 px-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition">
+                    <i data-lucide="list" class="w-4 h-4 inline mr-1"></i> All Records
+                </button>
+            </div>
+            <div id="panel-users" class="p-4 max-h-64 overflow-y-auto scrollable">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm font-medium text-gray-600">Manage system users</span>
+                    <button onclick="loadUsers()" class="text-sm text-red-600 hover:underline flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+                    </button>
+                </div>
+                <div id="user-list-container" class="space-y-2">
+                    <p class="text-sm text-gray-500 text-center py-4">Loading…</p>
+                </div>
+            </div>
+            <div id="panel-history" class="hidden p-4 max-h-64 overflow-y-auto scrollable">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm font-medium text-gray-600">Recent registrations</span>
+                    <button onclick="loadHistory()" class="text-sm text-red-600 hover:underline flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+                    </button>
+                </div>
+                <div id="history-list-container" class="space-y-2">
+                    <p class="text-sm text-gray-500 text-center py-4">No registrations yet.</p>
+                </div>
+            </div>
+            <div id="panel-records" class="hidden p-4 max-h-96 overflow-y-auto scrollable">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm font-medium text-gray-600">All bike registrations</span>
+                    <button onclick="loadAllRecords()" class="text-sm text-red-600 hover:underline flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+                    </button>
+                </div>
+                <div id="records-container" class="overflow-x-auto">
+                    <p class="text-sm text-gray-500 text-center py-4">Loading records…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+    <div id="alert-modal" class="hidden-view fixed inset-0 modal-overlay z-[60]">
+        <div class="modal-card max-w-sm p-6 text-center border-t-4 border-red-500">
+            <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+                <i data-lucide="alert-triangle" class="h-7 w-7 text-red-600"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-gray-900" id="alert-title">Notice</h3>
+            <p class="text-sm text-gray-600 mb-6" id="alert-message"></p>
+            <button onclick="closeAlertModal()" class="w-full btn-red">Understood</button>
+        </div>
+    </div>
+
+    <div id="qr-scanner-modal" class="hidden-view fixed inset-0 modal-overlay z-50">
+        <div class="modal-card max-w-md p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <i data-lucide="scan" class="w-5 h-5 text-red-600"></i> Scan QR Code
+                </h3>
+                <button onclick="stopQrScanner()" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="qr-reader-container" class="relative bg-black rounded-xl overflow-hidden">
+                <div id="qr-reader"></div>
+                <div class="qr-scanner-overlay">
+                    <div class="qr-corner tl"></div>
+                    <div class="qr-corner tr"></div>
+                    <div class="qr-corner bl"></div>
+                    <div class="qr-corner br"></div>
+                </div>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-3">Position the QR code within the frame</p>
+            <div class="flex gap-2 mt-4">
+                <button onclick="stopQrScanner()" class="flex-1 btn-grey">Cancel</button>
+                <button onclick="stopQrScanner()" class="flex-1 btn-red">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Camera Modal ─── -->
+    <div id="camera-modal" class="hidden-view fixed inset-0 modal-overlay z-50">
+        <div class="modal-card p-4">
+            <h3 class="text-lg font-bold mb-3 text-gray-800">Take Photo</h3>
+            <div class="relative bg-black rounded-xl overflow-hidden">
+                <video id="camera-video" autoplay playsinline class="w-full"></video>
+            </div>
+            <div class="camera-controls mt-4">
+                <button onclick="closeCamera()" class="btn-grey">Cancel</button>
+                <button onclick="capturePhoto()" class="btn-red">Capture</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚲 QR Code Bike Registration System starting...');
+
+        // ── YOUR NEW GAS URL ──
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw8O2AAyXjKOUkDsf2GZ_egukyXv1uU-KqgkJCtCclPjh6HF7ZoZTXUppywEiW5Xp5U/exec";
+
+        let currentUser = null;
+        let currentUserRole = null;
+        let adminTab = 'users';
+        let qrScannerInstance = null;
+        let isScanning = false;
+        const barcodeInput = document.getElementById('barcode-value');
+
+        // ── State for bike validation ──
+        let bikeNumberValid = false;
+        let bikeNumberChecking = false;
+        let bikeCheckTimeout = null;
+        let lastCheckedBikeNumber = null;
+        let lastInvalidShown = null;
+        let isInvalidBikePopup = false;
+
+        // ── Photo state ──
+        let bikePhotoBase64 = null;
+        let hasPhoto = false;
+
+        // ── Camera state ──
+        let cameraStream = null;
+
+        // ── Password eye toggle ──
+        let passwordVisible = false;
+
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('new-password');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (passwordVisible) {
+                passwordInput.type = 'password';
+                eyeIcon.setAttribute('data-lucide', 'eye');
+                passwordVisible = false;
+            } else {
+                passwordInput.type = 'text';
+                eyeIcon.setAttribute('data-lucide', 'eye-off');
+                passwordVisible = true;
+            }
+            lucide.createIcons();
+        }
+
+        // ── DOM references ──
+        const bikeInput = document.getElementById('bike-number');
+        const feedback = document.getElementById('bike-number-feedback');
+        const saveBtn = document.getElementById('save-button');
+        const takePhotoBtn = document.getElementById('take-photo-btn');
+        const takePhotoText = document.getElementById('take-photo-text');
+
+        // ── Update save button state ──
+        function updateSaveButton() {
+            saveBtn.disabled = !bikeNumberValid;
+        }
+
+        // ── Show popup for invalid bike number ──
+        function showInvalidPopup(bikeNumber) {
+            const title = 'Bike Number Not Found';
+            const message = '✗ Bike number ' + bikeNumber + ' not found in master list.<br><br>Please enter the correct bike number.';
+            document.getElementById('alert-title').textContent = title;
+            document.getElementById('alert-message').innerHTML = message;
+            isInvalidBikePopup = true;
+            showModal('alert-modal');
+        }
+
+        // ── Custom close for alert modal ──
+        function closeAlertModal() {
+            if (isInvalidBikePopup) {
+                bikeInput.value = '';
+                feedback.innerHTML = '<span>5 characters, starts with 1-5 or 9. Must exist in master list.</span>';
+                bikeNumberValid = false;
+                lastCheckedBikeNumber = null;
+                lastInvalidShown = null;
+                updateSaveButton();
+                isInvalidBikePopup = false;
+            }
+            closeModal('alert-modal');
+        }
+
+        // ── Update photo button text ──
+        function updatePhotoButton() {
+            if (hasPhoto) {
+                takePhotoText.textContent = 'Retake Photo';
+            } else {
+                takePhotoText.textContent = 'Take Photo';
+            }
+            lucide.createIcons();
+        }
+
+        // ── Camera functions ──
+        async function openCamera() {
+            if (hasPhoto) {
+                removeBikePhoto();
+            }
+            try {
+                const video = document.getElementById('camera-video');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                video.srcObject = stream;
+                cameraStream = stream;
+                showModal('camera-modal');
+            } catch (err) {
+                console.error('Camera error:', err);
+                showToast('Could not access camera. Please check permissions.', 'error');
+            }
+        }
+
+        function closeCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            document.getElementById('camera-video').srcObject = null;
+            closeModal('camera-modal');
+            if (!hasPhoto) {
+                updatePhotoButton();
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('camera-video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            let width = video.videoWidth;
+            let height = video.videoHeight;
+            const maxDim = 200;
+            if (width > maxDim || height > maxDim) {
+                const ratio = Math.min(maxDim / width, maxDim / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(video, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+            bikePhotoBase64 = dataUrl;
+            hasPhoto = true;
+            const preview = document.getElementById('bike-photo-preview');
+            const imgEl = document.getElementById('bike-photo-img');
+            imgEl.src = dataUrl;
+            preview.classList.remove('hidden');
+            updatePhotoButton();
+            showToast('Photo captured and compressed.', 'success');
+            closeCamera();
+        }
+
+        function removeBikePhoto() {
+            bikePhotoBase64 = null;
+            hasPhoto = false;
+            document.getElementById('bike-photo-preview').classList.add('hidden');
+            document.getElementById('bike-photo-img').src = '';
+            updatePhotoButton();
+        }
+
+        // ── API CALL ──
+        async function apiCall(action, payload) {
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action, ...payload })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                }
+                return await response.json();
+            } catch (e) {
+                console.error('API call error:', e);
+                let msg = 'Network error communicating with the database. ';
+                if (e.message.includes('Failed to fetch')) {
+                    msg += 'Check that the HTML is served via a web server (not file://) and that the GAS URL is correct.';
+                } else {
+                    msg += 'Details: ' + e.message;
+                }
+                throw new Error(msg);
+            }
+        }
+
+        // ── TEST BACKEND ──
+        async function testBackend() {
+            const resultDiv = document.getElementById('test-result');
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '🔄 Testing connection...';
+            resultDiv.className = 'mt-3 text-xs text-blue-600 text-center';
+            try {
+                const res = await apiCall('login', { username: 'admin', password: 'admin' });
+                if (res.success) {
+                    resultDiv.innerHTML = '✅ Backend is reachable and login works!';
+                    resultDiv.className = 'mt-3 text-xs text-green-600 text-center';
+                } else {
+                    resultDiv.innerHTML = '❌ Backend responded, but login failed: ' + (res.message || 'Unknown error');
+                    resultDiv.className = 'mt-3 text-xs text-red-600 text-center';
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '❌ Error: ' + err.message;
+                resultDiv.className = 'mt-3 text-xs text-red-600 text-center';
+                console.error('Test backend error:', err);
+            }
+        }
+
+        // ── TOAST ──
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const map = { success: 'toast-success', error: 'toast-error', warning: 'toast-warning', info: 'toast-info' };
+            const iconMap = { success: 'check-circle', error: 'alert-circle', warning: 'alert-triangle', info: 'info' };
+            const el = document.createElement('div');
+            el.className = 'toast ' + (map[type] || 'toast-info');
+            el.innerHTML = '<i data-lucide="' + (iconMap[type] || 'bell') + '" class="w-5 h-5 flex-shrink-0"></i><span>' + message +
+                '</span>';
+            container.appendChild(el);
+            lucide.createIcons();
+            setTimeout(function() {
+                el.classList.add('removing');
+                setTimeout(function() { el.remove(); }, 350);
+            }, 4000);
+        }
+
+        // ── NAVIGATION ──
+        function switchView(viewId) {
+            var views = ['view-login', 'view-data', 'view-admin'];
+            for (var i = 0; i < views.length; i++) {
+                var el = document.getElementById(views[i]);
+                if (el) {
+                    if (views[i] === viewId) {
+                        el.classList.remove('hidden-view');
+                    } else {
+                        el.classList.add('hidden-view');
+                    }
+                }
+            }
+            if (viewId === 'view-data') {
+                updateSaveButton();
+                updatePhotoButton();
+            }
+            setTimeout(lucide.createIcons, 50);
+        }
+
+        function showModal(id) {
+            document.getElementById(id).classList.remove('hidden-view');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden-view');
+            document.body.style.overflow = '';
+            var inputs = document.querySelectorAll('#' + id + ' input');
+            for (var i = 0; i < inputs.length; i++) {
+                inputs[i].value = '';
+            }
+        }
+
+        function toggleSpinner(prefix, loading, text) {
+            var label = document.getElementById(prefix + '-text');
+            var spinner = document.getElementById(prefix + '-spinner');
+            if (!label || !spinner) return;
+            if (loading) {
+                label.textContent = text || 'Processing…';
+                spinner.classList.remove('hidden');
+            } else {
+                label.textContent = text || 'Submit';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // ── ADMIN TAB SWITCHING ──
+        function switchAdminTab(tab) {
+            adminTab = tab;
+            var panels = {
+                users: document.getElementById('panel-users'),
+                history: document.getElementById('panel-history'),
+                records: document.getElementById('panel-records')
+            };
+            var tabs = {
+                users: document.getElementById('tab-users'),
+                history: document.getElementById('tab-history'),
+                records: document.getElementById('tab-records')
+            };
+            for (var key in panels) {
+                if (panels[key]) {
+                    if (key === tab) {
+                        panels[key].classList.remove('hidden');
+                    } else {
+                        panels[key].classList.add('hidden');
+                    }
+                }
+            }
+            var tabKeys = ['users', 'history', 'records'];
+            for (var i = 0; i < tabKeys.length; i++) {
+                var t = tabs[tabKeys[i]];
+                if (t) {
+                    if (tabKeys[i] === tab) {
+                        t.className = 'flex-1 py-3 px-4 text-sm font-medium text-red-600 border-b-2 border-red-600 transition';
+                    } else {
+                        t.className = 'flex-1 py-3 px-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition';
+                    }
+                }
+            }
+            if (tab === 'history') loadHistory();
+            if (tab === 'records') loadAllRecords();
+            if (tab === 'users') loadUsers();
+            lucide.createIcons();
+        }
+
+        // ── LOGIN ──
+        async function handleLogin(e) {
+            e.preventDefault();
+            var user = document.getElementById('login-user').value.trim();
+            var pass = document.getElementById('login-pass').value;
+            if (!user || !pass) return showToast('Please fill in all fields.', 'warning');
+
+            toggleSpinner('login', true);
+            try {
+                var res = await apiCall('login', { username: user, password: pass });
+                if (!res.success) throw new Error(res.message || 'Login failed.');
+
+                currentUser = user;
+                currentUserRole = res.role || 'user';
+
+                if (currentUserRole === 'admin') {
+                    switchView('view-admin');
+                    showToast('Admin welcome, ' + user + '!', 'success');
+                    loadUsers();
+                    loadStats();
+                    loadHistory();
+                } else {
+                    document.getElementById('logged-in-user').textContent = user;
+                    switchView('view-data');
+                    showToast('Welcome, ' + user + '!', 'success');
+                }
+                document.getElementById('login-form').reset();
+            } catch (err) {
+                showToast(err.message || 'Invalid credentials.', 'error');
+            } finally {
+                toggleSpinner('login', false, 'Login');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentUserRole = null;
+            clearDataForm();
+            stopQrScanner();
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            switchView('view-login');
+            showToast('Logged out.', 'info');
+        }
+
+        // ── BIKE NUMBER VALIDATION ──
+        function validateBikeNumberFormat(str) {
+            var s = str.toUpperCase().trim();
+            if (s.length !== 5) return { valid: false, msg: 'Must be exactly 5 characters.' };
+            var first = s.charAt(0);
+            if (['1', '2', '3', '4', '5', '9'].indexOf(first) === -1) {
+                return { valid: false, msg: 'Must start with 1-5 or 9.' };
+            }
+            if (['6', '7', '8'].indexOf(first) !== -1) {
+                return { valid: false, msg: 'Bikes starting with 6, 7 or 8 do not exist.' };
+            }
+            return { valid: true, value: s };
+        }
+
+        async function checkBikeNumberInMasterList(bikeNumber) {
+            try {
+                const res = await apiCall('checkBikeNumber', { bikeNumber: bikeNumber });
+                return res.exists === true;
+            } catch (e) {
+                console.error('Master list check failed:', e);
+                return false;
+            }
+        }
+
+        function debouncedBikeCheck() {
+            var value = bikeInput.value.trim();
+            var format = validateBikeNumberFormat(value);
+            if (!format.valid) {
+                feedback.innerHTML = '<span class="invalid">✗ ' + format.msg + '</span>';
+                bikeNumberValid = false;
+                lastCheckedBikeNumber = null;
+                lastInvalidShown = null;
+                updateSaveButton();
+                return;
+            }
+
+            if (lastCheckedBikeNumber === format.value && bikeNumberValid) {
+                return;
+            }
+
+            feedback.innerHTML = '<span class="checking">⏳ Checking in master list...</span>';
+            bikeNumberChecking = true;
+            bikeNumberValid = false;
+            updateSaveButton();
+
+            if (bikeCheckTimeout) clearTimeout(bikeCheckTimeout);
+
+            bikeCheckTimeout = setTimeout(async function() {
+                var exists = await checkBikeNumberInMasterList(format.value);
+                bikeNumberChecking = false;
+                if (exists) {
+                    feedback.innerHTML = '<span class="valid">✓ Valid bike number (found in master list)</span>';
+                    bikeNumberValid = true;
+                    lastCheckedBikeNumber = format.value;
+                    lastInvalidShown = null;
+                } else {
+                    feedback.innerHTML = '<span class="invalid">✗ Bike number not found in master list</span>';
+                    bikeNumberValid = false;
+                    lastCheckedBikeNumber = null;
+                    if (lastInvalidShown !== format.value) {
+                        lastInvalidShown = format.value;
+                        showInvalidPopup(format.value);
+                    }
+                }
+                updateSaveButton();
+            }, 500);
+        }
+
+        // ── Event listeners ──
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSaveButton();
+            updatePhotoButton();
+
+            bikeInput.addEventListener('input', function() {
+                var val = bikeInput.value.trim();
+                if (val.length === 0) {
+                    feedback.innerHTML = '<span>5 characters, starts with 1-5 or 9. Must exist in master list.</span>';
+                    bikeNumberValid = false;
+                    lastCheckedBikeNumber = null;
+                    lastInvalidShown = null;
+                    if (bikeCheckTimeout) clearTimeout(bikeCheckTimeout);
+                    bikeNumberChecking = false;
+                    updateSaveButton();
+                    return;
+                }
+                debouncedBikeCheck();
+            });
+        });
+
+        // ── SAVE DATA ──
+        async function saveData() {
+            var bikeNum = bikeInput.value;
+            var barcode = barcodeInput.value.trim();
+
+            if (!bikeNumberValid) {
+                showToast('Please enter a valid bike number from the master list.', 'error');
+                return;
+            }
+
+            if (!barcode) return showToast('Please enter or scan a barcode.', 'warning');
+
+            toggleSpinner('save', true);
+            try {
+                var res = await apiCall('saveData', {
+                    user: currentUser || 'unknown',
+                    bikeNumber: bikeNum.toUpperCase().trim(),
+                    barcode: barcode,
+                    bikePhoto: bikePhotoBase64 || ''
+                });
+
+                if (res.success) {
+                    if (res.duplicate) {
+                        showCustomAlert('Duplicate Bike Number',
+                            'This bike number was already linked with a QR code.\nThe new record has been added with a WARNING DUPLICATE BIKE NUMBER note.'
+                            );
+                    } else {
+                        showToast('Registration saved successfully!', 'success');
+                    }
+                    clearDataForm();
+                    if (document.getElementById('view-admin').classList.contains('hidden-view') === false) {
+                        loadStats();
+                        loadHistory();
+                        if (adminTab === 'records') loadAllRecords();
+                    }
+                } else if (res.status === 'NOT_IN_MASTER') {
+                    showCustomAlert('Invalid Bike Number', 'This bike number does not exist in the master list.');
+                } else {
+                    throw new Error(res.message || 'Save failed.');
+                }
+            } catch (err) {
+                showToast(err.message || 'Error saving data.', 'error');
+            } finally {
+                toggleSpinner('save', false, 'Submit Data');
+            }
+        }
+
+        function clearDataForm() {
+            bikeInput.value = '';
+            barcodeInput.value = '';
+            feedback.innerHTML = '<span>5 characters, starts with 1-5 or 9. Must exist in master list.</span>';
+            bikeNumberValid = false;
+            lastCheckedBikeNumber = null;
+            lastInvalidShown = null;
+            updateSaveButton();
+            removeBikePhoto();
+            bikeInput.focus();
+            stopQrScanner();
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        }
+
+        function showCustomAlert(title, message) {
+            isInvalidBikePopup = false;
+            document.getElementById('alert-title').textContent = title;
+            document.getElementById('alert-message').innerHTML = message;
+            showModal('alert-modal');
+        }
+
+        // ── QR SCANNER ──
+        async function startQrScanner() {
+            if (isScanning) { showToast('Scanner already active.', 'info'); return; }
+            if (typeof Html5Qrcode === 'undefined') { showToast('QR scanner library failed to load. Please refresh.', 'error'); return; }
+            if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) { showToast('Camera not supported on this device.', 'error'); return; }
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    var perm = await navigator.permissions.query({ name: 'camera' });
+                    if (perm.state === 'denied') { showToast('Camera permission denied. Please allow access in settings.', 'error'); return; }
+                } catch (e) {}
+            }
+            showModal('qr-scanner-modal');
+            setTimeout(async function() {
+                try {
+                    var readerElement = document.getElementById('qr-reader');
+                    readerElement.innerHTML = '';
+                    qrScannerInstance = new Html5Qrcode('qr-reader');
+                    var cameras = await Html5Qrcode.getCameras();
+                    var cameraId = null;
+                    if (cameras && cameras.length > 0) {
+                        var env = cameras.find(function(c) { return c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('environment'); });
+                        cameraId = env ? env.id : cameras[0].id;
+                    }
+                    var config = { fps: 15, qrbox: { width: 260, height: 260 }, aspectRatio: 1.0 };
+                    var startConfig = cameraId ? { deviceId: cameraId } : { facingMode: 'environment' };
+                    await qrScannerInstance.start(startConfig, config, onQrCodeSuccess, onQrCodeError);
+                    isScanning = true;
+                } catch (err) {
+                    console.error('QR scanner error:', err);
+                    var msg = 'Could not access camera. ';
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') msg += 'Please grant camera permission in your browser settings.';
+                    else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') msg += 'No camera found on this device.';
+                    else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') msg += 'Camera is busy or in use by another app.';
+                    else msg += err.message || 'Unknown error.';
+                    showToast(msg, 'error');
+                    closeModal('qr-scanner-modal');
+                    isScanning = false;
+                }
+            }, 500);
+        }
+
+        function onQrCodeSuccess(decodedText) {
+            barcodeInput.value = decodedText;
+            showToast('QR Code scanned successfully!', 'success');
+            barcodeInput.style.borderColor = '#16a34a';
+            setTimeout(function() { barcodeInput.style.borderColor = ''; }, 2000);
+            stopQrScanner();
+        }
+
+        function onQrCodeError(errorMessage) {
+            if (errorMessage && errorMessage.includes('No QR code')) return;
+        }
+
+        function stopQrScanner() {
+            if (qrScannerInstance) {
+                try {
+                    qrScannerInstance.stop().then(function() {
+                        qrScannerInstance.clear();
+                        qrScannerInstance = null;
+                        isScanning = false;
+                    }).catch(function() {
+                        qrScannerInstance = null;
+                        isScanning = false;
+                    });
+                } catch (e) { qrScannerInstance = null; isScanning = false; }
+            }
+            closeModal('qr-scanner-modal');
+            isScanning = false;
+        }
+
+        document.addEventListener('click', function(e) {
+            var modal = document.getElementById('qr-scanner-modal');
+            if (modal && !modal.classList.contains('hidden-view')) {
+                if (e.target === modal) stopQrScanner();
+            }
+        });
+
+        // ── ADMIN FUNCTIONS ──
+        async function loadUsers() {
+            var container = document.getElementById('user-list-container');
+            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
+            lucide.createIcons();
+            try {
+                var res = await apiCall('getUsers', {});
+                if (!res.success) throw new Error(res.message);
+                container.innerHTML = '';
+                if (!res.users || res.users.length === 0) {
+                    container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No users found.</p>';
+                    return;
+                }
+                for (var i = 0; i < res.users.length; i++) {
+                    var u = res.users[i];
+                    var isAdmin = u.role && u.role.toLowerCase() === 'admin';
+                    container.innerHTML += '<div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200 shadow-sm">' +
+                        '<div class="flex flex-col">' +
+                        '<span class="font-medium text-gray-800">' + u.username + '</span>' +
+                        '<span class="text-xs text-gray-500">Password: ' + (u.password || 'Not set') + '</span>' +
+                        '<span class="text-xs text-gray-400">' + u.role + '</span>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-1.5">' +
+                        (isAdmin ? '<span class="text-xs text-gray-400 italic px-2">protected</span>' :
+                            '<button onclick="deleteUserAction(\'' + u.username + '\')" class="p-2 rounded-xl text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>'
+                            ) +
+                        '</div></div>';
+                }
+                lucide.createIcons();
+            } catch (err) {
+                container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load users.</p>';
+                showToast('Failed to fetch users.', 'error');
+            }
+        }
+
+        async function deleteUserAction(username) {
+            if (!confirm('Are you sure you want to delete user \'' + username + '\'?')) return;
+            try {
+                var res = await apiCall('deleteUser', { username: username });
+                if (!res.success) throw new Error(res.message);
+                showToast('User \'' + username + '\' deleted.', 'info');
+                loadUsers();
+                loadStats();
+            } catch (err) {
+                showToast(err.message || 'Deletion failed.', 'error');
+            }
+        }
+
+        async function loadHistory() {
+            var container = document.getElementById('history-list-container');
+            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
+            lucide.createIcons();
+            try {
+                var res = await apiCall('getCSV', {});
+                if (res.success) {
+                    var lines = res.csvData.split('\n');
+                    if (lines.length > 1) {
+                        container.innerHTML = '';
+                        var max = Math.min(lines.length, 11);
+                        for (var i = 1; i < max; i++) {
+                            var cols = lines[i].split(',');
+                            if (cols.length >= 4) {
+                                var duplicateNote = cols[4] ? '⚠️' : '✓';
+                                container.innerHTML += '<div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200 shadow-sm text-sm">' +
+                                    '<div><span class="font-mono font-medium text-gray-800">' + (cols[2] || '') +
+                                    '</span><span class="text-gray-500 ml-2 text-xs truncate max-w-[80px] inline-block">' +
+                                    (cols[3] || '') +
+                                    '</span><div class="text-xs text-gray-400 mt-0.5">' + (cols[0] || '') + ' · ' + (cols[1] || '') + '</div></div>' +
+                                    '<div class="text-xs text-gray-400">' + duplicateNote + '</div></div>';
+                            }
+                        }
+                        if (lines.length > 11) {
+                            container.innerHTML += '<p class="text-xs text-gray-400 text-center py-2">... and ' + (lines.length - 11) + ' more. See "All Records" tab.</p>';
+                        }
+                    } else {
+                        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No registrations yet.</p>';
+                    }
+                }
+            } catch (e) {
+                container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load history.</p>';
+            }
+            lucide.createIcons();
+        }
+
+        async function loadAllRecords() {
+            var container = document.getElementById('records-container');
+            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
+            lucide.createIcons();
+            try {
+                var res = await apiCall('getCSV', {});
+                if (res.success) {
+                    var lines = res.csvData.split('\n');
+                    if (lines.length <= 1) {
+                        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No records found.</p>';
+                        return;
+                    }
+                    var html = '<div class="record-count text-xs text-gray-400 mb-2">Total records: ' + (lines.length - 1) + '</div>';
+                    html += '<table class="records-table"><thead><tr>';
+                    var headers = lines[0].split(',');
+                    for (var h = 0; h < headers.length; h++) {
+                        html += '<th>' + headers[h].trim() + '</th>';
+                    }
+                    html += '</tr></thead><tbody>';
+                    for (var i = 1; i < lines.length; i++) {
+                        var cols = lines[i].split(',');
+                        html += '<tr>';
+                        for (var c = 0; c < cols.length; c++) {
+                            var cell = cols[c] || '';
+                            if (c === 5 && cell && cell.length > 10) {
+                                html += '<td>📷</td>';
+                            } else if (c === 4 && cell && cell.toLowerCase().includes('warning')) {
+                                html += '<td class="duplicate-warning">' + cell + '</td>';
+                            } else {
+                                html += '<td>' + cell + '</td>';
+                            }
+                        }
+                        html += '</tr>';
+                    }
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load records.</p>';
+                }
+            } catch (e) {
+                container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Error loading records.</p>';
+            }
+            lucide.createIcons();
+        }
+
+        async function loadStats() {
+            try {
+                var usersRes = await apiCall('getUsers', {});
+                var csvRes = await apiCall('getCSV', {});
+                var total = 0;
+                if (csvRes.success) {
+                    var lines = csvRes.csvData.split('\n');
+                    total = Math.max(0, lines.length - 1);
+                }
+                var userCount = (usersRes.users || []).length;
+                document.getElementById('stat-total').textContent = total;
+                document.getElementById('stat-users').textContent = userCount;
+                document.getElementById('stat-photos').textContent = total;
+            } catch (e) { /* silent */ }
+        }
+
+        async function adminAction(actionType) {
+            try {
+                if (actionType === 'addUser') {
+                    var u = document.getElementById('new-username').value.trim();
+                    var p = document.getElementById('new-password').value;
+                    if (!u || !p) return showToast('Enter username and password.', 'warning');
+                    toggleSpinner('admin-add', true);
+                    var res = await apiCall('addUser', { username: u, password: p, role: 'user' });
+                    if (!res.success) throw new Error(res.message);
+                    showToast(res.message || 'User saved.', 'success');
+                    document.getElementById('new-username').value = '';
+                    document.getElementById('new-password').value = '';
+                    if (passwordVisible) {
+                        togglePasswordVisibility();
+                    }
+                    loadUsers();
+                    loadStats();
+                    toggleSpinner('admin-add', false, 'Save User');
+                } else if (actionType === 'downloadCSV') {
+                    var res2 = await apiCall('getCSV', {});
+                    if (!res2.success) throw new Error(res2.message);
+                    downloadFile('bike_registrations.csv', res2.csvData);
+                    showToast('Database downloaded.', 'success');
+                }
+            } catch (err) {
+                showToast(err.message || 'Action failed.', 'error');
+                toggleSpinner('admin-add', false, 'Save User');
+            }
+        }
+
+        function downloadFile(filename, text) {
+            var a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(text);
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // ── KEYBOARD SHORTCUTS ──
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (document.getElementById('view-data').classList.contains('hidden-view') === false) { saveData(); }
+            }
+            if (e.key === 'Escape') {
+                var modals = document.querySelectorAll('.modal-overlay:not(.hidden-view)');
+                for (var i = 0; i < modals.length; i++) {
+                    if (modals[i].id === 'qr-scanner-modal') { stopQrScanner(); } else if (modals[i].id === 'camera-modal') { closeCamera(); } else {
+                        if (modals[i].id === 'alert-modal') {
+                            closeAlertModal();
+                        } else {
+                            closeModal(modals[i].id);
+                        }
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('touchend', function(e) {
+            var now = Date.now();
+            if (now - (document.lastTouch || 0) < 300) e.preventDefault();
+            document.lastTouch = now;
+        }, { passive: false });
+
+        // ── INIT ──
+        switchView('view-login');
+        document.getElementById('login-user').focus();
+        console.log('✅ QR Code Bike Registration System ready.');
+        console.log('📊 GAS URL: ' + GAS_WEB_APP_URL);
+        console.log('📸 "Retake Photo" feature enabled.');
+    </script>
+</body>
+</html>
