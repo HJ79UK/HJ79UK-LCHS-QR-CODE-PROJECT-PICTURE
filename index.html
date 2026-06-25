@@ -11,6 +11,7 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
     </script>
     <style>
+        /* ─── All styles unchanged ─── */
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
@@ -475,6 +476,37 @@
         .camera-controls button {
             flex: 1;
         }
+        #photo-modal .modal-card {
+            max-width: 500px;
+        }
+        #photo-modal img {
+            max-height: 70vh;
+            width: auto;
+            border-radius: 0.5rem;
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .search-box input {
+            flex: 1;
+        }
+        .page-info {
+            font-size: 0.9rem;
+            color: #4b5563;
+        }
+        .btn-sm {
+            padding: 0.3rem 0.8rem;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -660,15 +692,30 @@
                     <p class="text-sm text-gray-500 text-center py-4">No registrations yet.</p>
                 </div>
             </div>
+            <!-- All Records panel with pagination and search -->
             <div id="panel-records" class="hidden p-4 max-h-96 overflow-y-auto scrollable">
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
                     <span class="text-sm font-medium text-gray-600">All bike registrations</span>
-                    <button onclick="loadAllRecords()" class="text-sm text-red-600 hover:underline flex items-center gap-1 transition">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
-                    </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="loadRecords(1)" class="text-sm text-red-600 hover:underline flex items-center gap-1 transition">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <!-- Search box -->
+                <div class="search-box">
+                    <input type="text" id="search-bike-input" placeholder="Search by Bike Number" class="input-field" />
+                    <button onclick="searchRecords()" class="btn-red btn-sm">Search</button>
+                    <button onclick="clearSearch()" class="btn-grey btn-sm">Clear</button>
                 </div>
                 <div id="records-container" class="overflow-x-auto">
                     <p class="text-sm text-gray-500 text-center py-4">Loading records…</p>
+                </div>
+                <!-- Pagination controls -->
+                <div class="pagination-controls" id="pagination-controls">
+                    <button onclick="prevPage()" id="prev-btn" class="btn-grey btn-sm" disabled>Previous</button>
+                    <span class="page-info" id="page-info">Page 1 of 1</span>
+                    <button onclick="nextPage()" id="next-btn" class="btn-grey btn-sm" disabled>Next</button>
                 </div>
             </div>
         </div>
@@ -725,11 +772,27 @@
         </div>
     </div>
 
+    <!-- ─── Photo Viewer Modal ─── -->
+    <div id="photo-modal" class="hidden-view fixed inset-0 modal-overlay z-[70]">
+        <div class="modal-card p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-bold text-gray-800">Bike Photo</h3>
+                <button onclick="closePhotoModal()" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="flex justify-center">
+                <img id="photo-modal-img" src="" alt="Bike photo" class="max-w-full max-h-[70vh] rounded-lg" />
+            </div>
+            <div class="mt-4 text-center">
+                <button onclick="closePhotoModal()" class="btn-grey">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         console.log('🚲 QR Code Bike Registration System starting...');
 
-        // ── YOUR NEW GAS URL ──
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw8O2AAyXjKOUkDsf2GZ_egukyXv1uU-KqgkJCtCclPjh6HF7ZoZTXUppywEiW5Xp5U/exec";
+        // ─── YOUR NEW GAS URL ───
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzGEmZ70Hi2sTUPVTRBblJPHKzrBmuIE3tQ9qX3Ft8O3vIQjqWhPUCXnLuFnkka2k3I/exec";
 
         let currentUser = null;
         let currentUserRole = null;
@@ -755,6 +818,15 @@
 
         // ── Password eye toggle ──
         let passwordVisible = false;
+
+        // ── Records state ──
+        let currentPage = 1;
+        const pageLimit = 50;
+        let totalRecords = 0;
+        let currentRows = []; // for the current page
+        let isSearchMode = false; // flag to indicate we are displaying search results
+        let searchResults = []; // store search results for pagination (if needed)
+        let photoStore = []; // for photo viewer
 
         function togglePasswordVisibility() {
             const passwordInput = document.getElementById('new-password');
@@ -881,6 +953,22 @@
             document.getElementById('bike-photo-preview').classList.add('hidden');
             document.getElementById('bike-photo-img').src = '';
             updatePhotoButton();
+        }
+
+        // ── Photo viewer functions ──
+        function viewPhoto(index) {
+            const photo = photoStore[index];
+            if (photo && photo.length > 10) {
+                document.getElementById('photo-modal-img').src = photo;
+                showModal('photo-modal');
+            } else {
+                showToast('No photo available for this record.', 'warning');
+            }
+        }
+
+        function closePhotoModal() {
+            closeModal('photo-modal');
+            document.getElementById('photo-modal-img').src = '';
         }
 
         // ── API CALL ──
@@ -1028,7 +1116,7 @@
                 }
             }
             if (tab === 'history') loadHistory();
-            if (tab === 'records') loadAllRecords();
+            if (tab === 'records') loadRecords(1); // load first page
             if (tab === 'users') loadUsers();
             lucide.createIcons();
         }
@@ -1202,7 +1290,7 @@
                     if (document.getElementById('view-admin').classList.contains('hidden-view') === false) {
                         loadStats();
                         loadHistory();
-                        if (adminTab === 'records') loadAllRecords();
+                        if (adminTab === 'records') loadRecords(currentPage);
                     }
                 } else if (res.status === 'NOT_IN_MASTER') {
                     showCustomAlert('Invalid Bike Number', 'This bike number does not exist in the master list.');
@@ -1401,51 +1489,152 @@
             lucide.createIcons();
         }
 
-        async function loadAllRecords() {
+        // ── ALL RECORDS with pagination and search ──
+        function renderRows(rows, total) {
             var container = document.getElementById('records-container');
-            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
-            lucide.createIcons();
-            try {
-                var res = await apiCall('getCSV', {});
-                if (res.success) {
-                    var lines = res.csvData.split('\n');
-                    if (lines.length <= 1) {
-                        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No records found.</p>';
-                        return;
-                    }
-                    var html = '<div class="record-count text-xs text-gray-400 mb-2">Total records: ' + (lines.length - 1) + '</div>';
-                    html += '<table class="records-table"><thead><tr>';
-                    var headers = lines[0].split(',');
-                    for (var h = 0; h < headers.length; h++) {
-                        html += '<th>' + headers[h].trim() + '</th>';
-                    }
-                    html += '</tr></thead><tbody>';
-                    for (var i = 1; i < lines.length; i++) {
-                        var cols = lines[i].split(',');
-                        html += '<tr>';
-                        for (var c = 0; c < cols.length; c++) {
-                            var cell = cols[c] || '';
-                            if (c === 5 && cell && cell.length > 10) {
-                                html += '<td>📷</td>';
-                            } else if (c === 4 && cell && cell.toLowerCase().includes('warning')) {
-                                html += '<td class="duplicate-warning">' + cell + '</td>';
-                            } else {
-                                html += '<td>' + cell + '</td>';
-                            }
-                        }
-                        html += '</tr>';
-                    }
-                    html += '</tbody></table>';
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load records.</p>';
-                }
-            } catch (e) {
-                container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Error loading records.</p>';
+            if (!rows || rows.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No records found.</p>';
+                return;
             }
+            var html = '<div class="record-count text-xs text-gray-400 mb-2">Showing ' + rows.length + ' records' + (total ? ' of ' + total : '') + '</div>';
+            html += '<table class="records-table"><thead><tr>';
+            // Headers
+            var headers = ['Date', 'User', 'BikeNo', 'QRcode', 'Duplicate', 'BikePhoto'];
+            for (var h = 0; h < headers.length; h++) {
+                html += '<th>' + headers[h] + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+            // Reset photo store for this view
+            photoStore = [];
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                html += '<tr>';
+                for (var c = 0; c < row.length; c++) {
+                    var cell = row[c] || '';
+                    if (c === 5 && cell && cell.length > 10) {
+                        // Photo column – store in array and use index
+                        var idx = photoStore.length;
+                        photoStore.push(cell);
+                        html += '<td><button class="photo-view-btn" data-index="' + idx + '" onclick="viewPhoto(this.dataset.index)" title="View photo"><i data-lucide="camera" class="w-5 h-5 text-blue-600 hover:text-blue-800 cursor-pointer"></i></button></td>';
+                    } else if (c === 4 && cell && cell.toLowerCase().includes('warning')) {
+                        html += '<td class="duplicate-warning">' + cell + '</td>';
+                    } else {
+                        html += '<td>' + cell + '</td>';
+                    }
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
             lucide.createIcons();
         }
 
+        function updatePaginationControls(page, total, limit) {
+            var totalPages = Math.ceil(total / limit);
+            var prevBtn = document.getElementById('prev-btn');
+            var nextBtn = document.getElementById('next-btn');
+            var pageInfo = document.getElementById('page-info');
+            if (totalPages <= 1) {
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                pageInfo.textContent = 'Page 1 of 1';
+                return;
+            }
+            prevBtn.disabled = (page <= 1);
+            nextBtn.disabled = (page >= totalPages);
+            pageInfo.textContent = 'Page ' + page + ' of ' + totalPages;
+        }
+
+        async function loadRecords(page) {
+            if (isSearchMode) {
+                // If in search mode, we need to clear search and load normal page
+                clearSearch();
+                return;
+            }
+            try {
+                var container = document.getElementById('records-container');
+                container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
+                lucide.createIcons();
+                var res = await apiCall('getRecords', { page: page, limit: pageLimit });
+                if (!res.success) {
+                    throw new Error(res.message);
+                }
+                currentPage = page;
+                totalRecords = res.total || 0;
+                currentRows = res.rows || [];
+                renderRows(currentRows, totalRecords);
+                updatePaginationControls(page, totalRecords, pageLimit);
+            } catch (e) {
+                console.error('loadRecords error:', e);
+                document.getElementById('records-container').innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load records.</p>';
+                showToast(e.message || 'Failed to load records.', 'error');
+            }
+        }
+
+        function nextPage() {
+            if (isSearchMode) return;
+            var totalPages = Math.ceil(totalRecords / pageLimit);
+            if (currentPage < totalPages) {
+                loadRecords(currentPage + 1);
+            }
+        }
+
+        function prevPage() {
+            if (isSearchMode) return;
+            if (currentPage > 1) {
+                loadRecords(currentPage - 1);
+            }
+        }
+
+        async function searchRecords() {
+            var searchInput = document.getElementById('search-bike-input');
+            var bikeNumber = searchInput.value.trim();
+            if (!bikeNumber) {
+                showToast('Please enter a bike number to search.', 'warning');
+                return;
+            }
+            try {
+                var container = document.getElementById('records-container');
+                container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i></p>';
+                lucide.createIcons();
+                var res = await apiCall('searchRecords', { bikeNumber: bikeNumber });
+                if (!res.success) {
+                    throw new Error(res.message);
+                }
+                var rows = res.rows || [];
+                if (rows.length === 0) {
+                    // Show modal
+                    showCustomAlert('No Records Found', 'No records found for bike number: <strong>' + bikeNumber + '</strong>');
+                    // Clear search input
+                    searchInput.value = '';
+                    // Reload current page
+                    loadRecords(currentPage);
+                    return;
+                }
+                // Display search results
+                isSearchMode = true;
+                currentRows = rows;
+                totalRecords = rows.length; // for pagination, but we'll disable pagination
+                renderRows(rows, totalRecords);
+                // Disable pagination buttons and show info
+                document.getElementById('prev-btn').disabled = true;
+                document.getElementById('next-btn').disabled = true;
+                document.getElementById('page-info').textContent = 'Search results (' + rows.length + ' found)';
+            } catch (e) {
+                console.error('searchRecords error:', e);
+                document.getElementById('records-container').innerHTML = '<p class="text-sm text-red-500 text-center py-4">Search failed.</p>';
+                showToast(e.message || 'Search failed.', 'error');
+            }
+        }
+
+        function clearSearch() {
+            var searchInput = document.getElementById('search-bike-input');
+            searchInput.value = '';
+            isSearchMode = false;
+            loadRecords(1);
+        }
+
+        // ── STATS ──
         async function loadStats() {
             try {
                 var usersRes = await apiCall('getUsers', {});
@@ -1462,6 +1651,7 @@
             } catch (e) { /* silent */ }
         }
 
+        // ── ADMIN ACTIONS ──
         async function adminAction(actionType) {
             try {
                 if (actionType === 'addUser') {
@@ -1511,13 +1701,11 @@
             if (e.key === 'Escape') {
                 var modals = document.querySelectorAll('.modal-overlay:not(.hidden-view)');
                 for (var i = 0; i < modals.length; i++) {
-                    if (modals[i].id === 'qr-scanner-modal') { stopQrScanner(); } else if (modals[i].id === 'camera-modal') { closeCamera(); } else {
-                        if (modals[i].id === 'alert-modal') {
-                            closeAlertModal();
-                        } else {
-                            closeModal(modals[i].id);
-                        }
-                    }
+                    if (modals[i].id === 'qr-scanner-modal') { stopQrScanner(); }
+                    else if (modals[i].id === 'camera-modal') { closeCamera(); }
+                    else if (modals[i].id === 'photo-modal') { closePhotoModal(); }
+                    else if (modals[i].id === 'alert-modal') { closeAlertModal(); }
+                    else { closeModal(modals[i].id); }
                 }
             }
         });
@@ -1533,7 +1721,7 @@
         document.getElementById('login-user').focus();
         console.log('✅ QR Code Bike Registration System ready.');
         console.log('📊 GAS URL: ' + GAS_WEB_APP_URL);
-        console.log('📸 "Retake Photo" feature enabled.');
+        console.log('📋 Pagination and search added to All Records.');
     </script>
 </body>
 </html>
