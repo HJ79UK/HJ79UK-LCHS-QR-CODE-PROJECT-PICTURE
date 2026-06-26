@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
     </script>
     <style>
-        /* ─── All styles unchanged (except photo modal) ─── */
+        /* ─── All styles unchanged ─── */
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
@@ -1771,7 +1771,8 @@
                 } else if (actionType === 'downloadCSV') {
                     var res2 = await apiCall('getCSV', {});
                     if (!res2.success) throw new Error(res2.message);
-                    downloadFile('bike_registrations.csv', res2.csvData);
+                    // The downloadFile function now adds timestamp automatically
+                    downloadFile('bike_registrations', res2.csvData);
                     showToast('Database downloaded.', 'success');
                 }
             } catch (err) {
@@ -1780,7 +1781,17 @@
             }
         }
 
-        function downloadFile(filename, text) {
+        // ── UPDATED downloadFile with timestamp ──
+        function downloadFile(baseName, text) {
+            // Generate timestamp: YYYY-MM-DD_HH-MM-SS
+            var now = new Date();
+            var ts = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0') + '_' +
+                String(now.getHours()).padStart(2, '0') + '-' +
+                String(now.getMinutes()).padStart(2, '0') + '-' +
+                String(now.getSeconds()).padStart(2, '0');
+            var filename = baseName + '_' + ts + '.csv';
             var a = document.createElement('a');
             a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(text);
             a.download = filename;
@@ -1824,6 +1835,7 @@
         console.log('📊 Stats update on every refresh in admin panels.');
         console.log('📋 History now shows newest entries first.');
         console.log('🔍 Photo zoom: 100% (2x) – modal expands both ways to fit.');
+        console.log('📁 CSV downloads now include timestamp in filename.');
     </script>
 </body>
 </html>
